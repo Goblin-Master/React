@@ -1,14 +1,16 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useRef } from 'react';
 import orderBy from 'lodash/orderBy';
 import cx from 'classnames';
-
+import { v4 as uuidv4 } from 'uuid';
+import  dayjs from 'dayjs';
 function App() {
   const [comments, setComments] = useState([
-    { id: 1, author: 'Alice', text: '第一条评论', createdAt: Date.now() - 1000 * 60 * 60, likes: 2, avatarSrc: 'https://api.dicebear.com/7.x/miniavs/svg?seed=1' },
-    { id: 2, author: 'Bob', text: 'React 很好用', createdAt: Date.now() - 1000 * 60 * 10, likes: 5, avatarSrc: 'https://api.dicebear.com/7.x/miniavs/svg?seed=2' },
-    { id: 3, author: 'Carol', text: '你好', createdAt: Date.now() - 1000 * 60 * 120, likes: 0, avatarSrc: 'https://api.dicebear.com/7.x/miniavs/svg?seed=3' }
+    { id: uuidv4(), author: 'Alice', text: '第一条评论', createdAt: dayjs(new Date(Date.now() - 1000 * 60 * 60)).format('YYYY-MM-DD HH:mm:ss'), likes: 2, avatarSrc: 'https://api.dicebear.com/7.x/miniavs/svg?seed=1' },
+    { id: uuidv4(), author: 'Bob', text: 'React 很好用', createdAt: dayjs(new Date(Date.now() - 1000 * 60 * 10)).format('YYYY-MM-DD HH:mm:ss'), likes: 5, avatarSrc: 'https://api.dicebear.com/7.x/miniavs/svg?seed=2' },
+    { id: uuidv4(), author: 'Carol', text: '你好', createdAt: dayjs(new Date(Date.now() - 1000 * 60 * 120)).format('YYYY-MM-DD HH:mm:ss'), likes: 0, avatarSrc: 'https://api.dicebear.com/7.x/miniavs/svg?seed=3' }
   ]);
   const [sortKey, setSortKey] = useState('time');
+  const textareaRef = useRef(null);
 
   const sorted = useMemo(() => {
     const key = sortKey === 'time' ? 'createdAt' : 'likes';
@@ -19,10 +21,62 @@ function App() {
     setComments((prev) => prev.map((c) => (c.id === id ? { ...c, likes: c.likes + 1 } : c)));
   };
 
+  const handlePost = () => {
+    const text = textareaRef.current.value.trim();
+    if (!text) return;
+
+    const newComment = {
+      id: uuidv4(),
+      author: 'Me',
+      text,
+      createdAt: dayjs(new Date()).format('YYYY-MM-DD HH:mm:ss'),
+      likes: 0,
+      avatarSrc: `https://api.dicebear.com/7.x/miniavs/svg?seed=${Date.now()}`
+    };
+
+    setComments([newComment, ...comments]);
+    textareaRef.current.value = '';
+    textareaRef.current.focus();
+  };
+
   return (
     <div className="app" style={{ maxWidth: 720, margin: '24px auto', fontFamily: 'system-ui, -apple-system, sans-serif', padding: '0 20px' }}>
       <h2 style={{ fontSize: 20, fontWeight: 600, marginBottom: 24 }}>评论列表</h2>
       
+      <div className="comment-input" style={{ marginBottom: 32 }}>
+        <textarea
+          ref={textareaRef}
+          placeholder="发条友善的评论..."
+          style={{ 
+            width: '100%', 
+            height: 80, 
+            padding: '12px', 
+            borderRadius: 4, 
+            border: '1px solid #ddd', 
+            marginBottom: 12, 
+            resize: 'none',
+            fontFamily: 'inherit',
+            boxSizing: 'border-box'
+          }}
+        />
+        <div style={{ textAlign: 'right' }}>
+          <button
+            onClick={handlePost}
+            style={{ 
+              padding: '8px 24px', 
+              background: '#1890ff', 
+              color: '#fff', 
+              border: 'none', 
+              borderRadius: 4, 
+              cursor: 'pointer',
+              fontWeight: 500
+            }}
+          >
+            发布
+          </button>
+        </div>
+      </div>
+
       <div className="tabs" style={{ display: 'flex', gap: 24, borderBottom: '1px solid #f0f0f0', marginBottom: 24 }}>
         <div 
           className={cx('tab', { active: sortKey === 'time' })}
