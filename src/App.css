@@ -1,0 +1,14 @@
+.app {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background-color: #fff;
+}
+
+.content-wrap {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+  /* padding-bottom: 50px; Cart height */
+}
