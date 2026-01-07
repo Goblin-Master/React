@@ -1,204 +1,180 @@
-import React, { useState, useActionState } from 'react';
-import { useFormStatus } from 'react-dom';
+import { useState } from 'react'
+import './App.css'
+import React from 'react';
 
 // ==========================================
-// 模拟服务器端 Action (Server Action)
+// 1. 泛型 Hook 教学：星际仓库管理器
 // ==========================================
-// 在 Next.js 等框架中，这通常是一个运行在服务端的异步函数
-// 这里我们模拟一个异步更新用户名的操作
-// 成功时返回: { success: true, message: "..." }
-// 失败时返回: { success: false, error: "..." }
-async function updateNameAction(_prevState: any, formData: FormData) {
-  // 模拟网络延迟
-  await new Promise((resolve) => setTimeout(resolve, 1500));
 
-  const name = formData.get('username') as string;
-  
-  if (!name || name.trim() === '') {
-    return { success: false, error: '用户名不能为空！' };
-  }
+// 定义一些具体的类型（货物）
+interface Planet {
+  id: number;
+  name: string;
+  type: 'Gas' | 'Rock';
+}
 
-  if (name.toLowerCase() === 'admin') {
-    return { success: false, error: '无法使用 "admin" 作为用户名' };
-  }
+interface Spaceship {
+  id: number;
+  model: string;
+  speed: number;
+}
 
-  return { success: true, message: `更新成功！你好，${name}` };
+/**
+ * 🎣 泛型 Hook: useGalaxyStorage<T>
+ *
+ * 想象这是一个 "万能次元口袋"。
+ * 不管你给它装 星球(Planet) 还是 飞船(Spaceship)，
+ * 它都能帮你管理：添加、删除、获取列表。
+ *
+ * T (Type) 就像是一个占位符，告诉 Hook："嘿，我这次要存的是这种类型的东西！"
+ * <T extends { id: number }> 约束了存进来的东西必须得有一个 id，方便我们管理。
+ */
+function useGalaxyStorage<T extends { id: number }>(initialData: T[]) {
+  const [items, setItems] = useState<T[]>(initialData);
+
+  // 添加物品
+  const add = (item: T) => {
+    setItems((prev) => [...prev, item]);
+  };
+
+  // 删除物品 (利用 id)
+  const remove = (id: number) => {
+    setItems((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  return { items, add, remove };
 }
 
 // ==========================================
-// 1. 传统写法 (React 18 及以前)
+// 2. 泛型组件 教学：全息展示台
 // ==========================================
-// 需要手动管理 pending, error, data 等多个状态
-const TraditionalForm = () => {
-  const [name, setName] = useState('');
-  const [isPending, setIsPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault(); // 1. 必须阻止默认提交
-    
-    // 2. 手动重置状态
-    setIsPending(true);
-    setError(null);
-    setMessage(null);
+/**
+ * 📺 泛型组件: HologramList<T>
+ *
+ * 这是一个 "万能展示台"。
+ * 它不关心展示的是什么，只负责把列表渲染出来。
+ * 但是具体怎么展示每一项（比如星球要展示名字，飞船要展示速度），
+ * 需要由使用者通过 renderItem 告诉它。
+ */
+interface HologramListProps<T> {
+  title: string;
+  items: T[];
+  // 这里的 renderItem 是关键，它把决定权交回给了父组件
+  renderItem: (item: T) => React.ReactNode;
+  onRemove: (id: number) => void;
+}
 
-    try {
-      // 3. 构造 FormData 或 JSON (这里为了对比逻辑，我们手动调模拟函数)
-      // 注意：传统模式下通常是调用 fetch('/api/...')
-      const formData = new FormData();
-      formData.append('username', name);
-      
-      // 模拟调用 API (这里复用上面的逻辑，但通常这里是 fetch)
-      // 为了适配上面的 updateNameAction 签名 (state, formData)，我们这里稍微 mock 一下
-      const result = await updateNameAction(null, formData);
-      
-      if (result.success) {
-        setMessage(result.message || null);
-        setName(''); // 清空输入
-      } else {
-        setError(result.error || null);
-      }
-    } catch (err) {
-      setError('网络错误');
-    } finally {
-      // 4. 手动关闭 loading
-      setIsPending(false);
-    }
-  };
-
+// 泛型组件的定义方式
+function HologramList<T extends { id: number }>({
+  title,
+  items,
+  renderItem,
+  onRemove
+}: HologramListProps<T>) {
   return (
-    <div style={cardStyle}>
-      <h3>👴 传统写法 (Manual States)</h3>
-      <form onSubmit={handleSubmit} style={formStyle}>
-        <div>
-          <label>用户名: </label>
-          <input 
-            type="text" 
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            disabled={isPending}
-            style={inputStyle}
-          />
-        </div>
-        
-        <button type="submit" disabled={isPending} style={buttonStyle}>
-          {isPending ? '提交中...' : '更新'}
-        </button>
-
-        {error && <p style={{ color: 'red' }}>❌ {error}</p>}
-        {message && <p style={{ color: 'green' }}>✅ {message}</p>}
-      </form>
+    <div className="hologram-card">
+      <h2>🔮 {title}</h2>
+      {items.length === 0 ? (
+        <p className="empty-state">仓库空空如也...</p>
+      ) : (
+        <ul className="item-list">
+          {items.map((item) => (
+            <li key={item.id} className="item-row">
+              {/* 渲染具体内容 */}
+              <div className="item-content">{renderItem(item)}</div>
+              <button
+                className="delete-btn"
+                onClick={() => onRemove(item.id)}
+              >
+                销毁
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
-};
+}
 
 // ==========================================
-// 2. React 19 写法 (useActionState + Actions)
+// 3. 主程序：星际指挥中心
 // ==========================================
-// 优势：
-// 1. 自动处理 pending 状态 (通过 useFormStatus)
-// 2. 自动管理表单返回值/错误 (通过 useActionState)
-// 3. 渐进增强 (Progressive Enhancement) 支持
-// 4. 代码更声明式，无需手动 e.preventDefault()
 
-// 子组件：提交按钮
-// 使用 useFormStatus 可以读取所在 form 的 pending 状态
-// 这样我们就不需要把 isPending 从父组件透传下来了
-const SubmitButton = () => {
-  const { pending } = useFormStatus();
-  
-  return (
-    <button type="submit" disabled={pending} style={buttonStyle}>
-      {pending ? '正在更新 (Action)...' : '更新 (Action)'}
-    </button>
-  );
-};
+const App: React.FC = () => {
+  // 场景 1: 管理星球 (T 自动推断为 Planet)
+  const planets = useGalaxyStorage<Planet>([
+    { id: 1, name: 'Earth', type: 'Rock' },
+    { id: 2, name: 'Jupiter', type: 'Gas' },
+  ]);
 
-const React19Form = () => {
-  // useActionState(actionFn, initialState)
-  // state: 上一次 action 返回的结果 (成功或失败的消息)
-  // formAction: 用于绑定到 <form action={...}> 或 <button formAction={...}> 的函数
-  // isPending: (可选) 也可以直接在这里拿到 pending 状态，但推荐用 useFormStatus 在子组件处理 UI
-  const [state, formAction] = useActionState(updateNameAction, null);
+  // 场景 2: 管理飞船 (T 自动推断为 Spaceship)
+  const spaceships = useGalaxyStorage<Spaceship>([
+    { id: 101, model: 'X-Wing', speed: 1050 },
+  ]);
 
   return (
-    <div style={cardStyle}>
-      <h3>🚀 React 19 写法 (Actions)</h3>
-      {/* 直接将 action 传递给 form，无需 onSubmit */}
-      <form action={formAction} style={formStyle}>
-        <div>
-          <label>用户名: </label>
-          {/* 这是一个非受控组件 (Uncontrolled)，我们可以利用 name 属性自动提取数据 */}
-          <input 
-            type="text" 
-            name="username" 
-            style={inputStyle}
-          />
-        </div>
-        
-        {/* 使用封装了 useFormStatus 的按钮 */}
-        <SubmitButton />
-
-        {state?.error && <p style={{ color: 'red' }}>❌ {state.error}</p>}
-        {state?.success && <p style={{ color: 'green' }}>✅ {state.message}</p>}
-      </form>
-    </div>
-  );
-};
-
-// ==========================================
-// 主组件
-// ==========================================
-const App = () => {
-  return (
-    <div style={{ padding: '40px', fontFamily: 'sans-serif', maxWidth: '800px', margin: '0 auto' }}>
-      <h1>React 19 Form Actions 教学</h1>
-      <p style={{ lineHeight: '1.6', color: '#555' }}>
-        对比 React 以前的手动表单管理与 React 19 引入的 Actions 模式。<br/>
-        React 19 通过 <code>useActionState</code> 和 <code>useFormStatus</code> 极大简化了异步表单的状态管理。
+    <div className="command-center">
+      <h1>🌌 星际指挥中心 (Generic Demo)</h1>
+      <p className="subtitle">
+        学习泛型 (Generics)：一套代码，管理万物。
       </p>
 
-      <div style={{ display: 'grid', gap: '20px', gridTemplateColumns: '1fr 1fr' }}>
-        <TraditionalForm />
-        <React19Form />
+      <div className="panels">
+        {/* 左边：星球管理 */}
+        <div className="panel">
+          <HologramList
+            title="已发现星球"
+            items={planets.items}
+            onRemove={planets.remove}
+            renderItem={(planet) => (
+              <span>
+                🌍 <b>{planet.name}</b> <span className={`tag ${planet.type.toLowerCase()}`}>{planet.type}</span>
+              </span>
+            )}
+          />
+          <button
+            className="add-btn"
+            onClick={() =>
+              planets.add({
+                id: Date.now(),
+                name: `Planet-${Math.floor(Math.random() * 100)}`,
+                type: Math.random() > 0.5 ? 'Gas' : 'Rock',
+              })
+            }
+          >
+            + 探索新星球
+          </button>
+        </div>
+
+        {/* 右边：飞船管理 */}
+        <div className="panel">
+          <HologramList
+            title="舰队机库"
+            items={spaceships.items}
+            onRemove={spaceships.remove}
+            renderItem={(ship) => (
+              <span>
+                🚀 <b>{ship.model}</b> <small style={{color: '#aaa'}}>({ship.speed} km/h)</small>
+              </span>
+            )}
+          />
+           <button
+            className="add-btn"
+            onClick={() =>
+              spaceships.add({
+                id: Date.now(),
+                model: `Viper-Mk${Math.floor(Math.random() * 10)}`,
+                speed: 1000 + Math.floor(Math.random() * 500),
+              })
+            }
+          >
+            + 建造新飞船
+          </button>
+        </div>
       </div>
     </div>
-  );
-};
+  )
+}
 
-// 样式定义
-const cardStyle: React.CSSProperties = {
-  border: '1px solid #ddd',
-  borderRadius: '12px',
-  padding: '24px',
-  background: '#fff',
-  boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
-};
-
-const formStyle: React.CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '16px'
-};
-
-const inputStyle: React.CSSProperties = {
-  padding: '8px 12px',
-  borderRadius: '6px',
-  border: '1px solid #ccc',
-  width: '100%',
-  boxSizing: 'border-box'
-};
-
-const buttonStyle: React.CSSProperties = {
-  padding: '10px 16px',
-  borderRadius: '6px',
-  border: 'none',
-  background: '#007bff',
-  color: 'white',
-  cursor: 'pointer',
-  fontSize: '14px',
-  fontWeight: 500
-};
-
-export default App;
+export default App
